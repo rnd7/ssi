@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html><head>
+<title>SSI</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<style>
+body{
+  background-color:#080808;
+  padding:0;
+  margin:0;
+  overflow:hidden;
+}
+h1{
+  position:absolute;
+  display:block;
+  padding:0;
+  margin:0;
+  bottom:0px;
+  right:6px;
+  font-size:12px;
+  font-weight:normal;
+  color:#777777;
+  font-style:italic;
+}
+.container{
+  overflow:hidden;
+ 
+  position: absolute;
+  width: 940px;
+  height: 436px;
+   
+  margin: -218px 0 0 -470px;
+  left: 50%;
+  top: 50%;
+}
+
+.wrapper{
+  position: absolute; 
+  -webkit-box-shadow: 1px 1px 5px 0px rgba(0, 0, 0, 0.3); /* WebKit */
+  -moz-box-shadow: 1px 1px 5px 0px rgba(0, 0, 0, 0.3); /* Firefox */
+  box-shadow: 1px 1px 5px 0px rgba(0, 0, 0, 0.3); /* Standard */
+  /*width: 940px;
+  height: 400px;*/
+  width: 940px;
+  height: 400px;
+   
+  /*Centering Method 2*/
+  /*margin: -200px 0 0 -470px;*/
+  margin: -200px 0 0 -470px;
+  left: 50%;
+  top: 50%;
+}
+#screen{
+  width: 940px;
+  height: 400px;
+}
+</style>               
+</head>
+<body>
+<div class="container">
+  <div class="wrapper">
+    <canvas id="screen" width="235" height="100"></canvas>
+  </div>
+  <h1>Subsample Impressionist</h1>
+</div>
+<script>
+/**
+  SUBSAMPLE IMPRESSIONIST  
+  Cute little program that renders animated art. It is based on a simple
+  subsample noise algorithm. The core concept is that multiple random images
+  with different dimensions (lets call them layers) are independently scaled to
+  fit the desired output size. Afterwards they are merged. Supersampling is
+  possible but not utilized in this implementation.
+  To gain a smooth and placid animation, only a few pixels of every layer are
+  altered during one frame. To achieve this and to generate connected areas, a 
+  cursor is continuously moved in random directions over its layer while
+  changing the pixel at its position.
+  Additionally all layer pixels are moved along x and y axis over time, while
+  wrapping them around layer edges. This creates a water like effect.
+  This Program exploits canvas image smoothing to create a more organic look.
+  Multiple canvas composite operations are used to merge the different layers.  
+  The output is buffered and blended over time to remove annoying flashes
+  caused by the exlusion and difference composite operations. It also improves
+  the continuity of the animation in its whole. 
+  To improve performance but fill the screen the result is scaled up by factor
+  four.
+  
+  SUBSAMPLE NOISE EXAMPLE  
+  The following example illustrates the mehtod to generate less random noise
+  by merging three layers of different size, The side length are chosen to match
+  2^n pattern to avoid interpolation issues. 
+  This is a 1bit per pixel variant. The data rate per pixel used within the
+  program is 32bit (24bit color + 8bit alpha).
+  
+  Layers (4x2, 2x4, 8x2)  
+  0 1 0 1   1 0   0 0 0 1 0 1 0 0 
+  0 0 0 1   0 0   0 1 0 0 0 0 1 0
+            1 0                  
+            0 1                  
+                          
+  Linear scaled layers (8x8)  
+  0 0 1 1 0 0 1 1   1 1 1 1 0 0 0 0   0 0 0 1 0 1 0 0
+  0 0 1 1 0 0 1 1   1 1 1 1 0 0 0 0   0 0 0 1 0 1 0 0
+  0 0 1 1 0 0 1 1   0 0 0 0 0 0 0 0   0 0 0 1 0 1 0 0
+  0 0 1 1 0 0 1 1   0 0 0 0 0 0 0 0   0 0 0 1 0 1 0 0
+  0 0 0 0 0 0 1 1   1 1 1 1 0 0 0 0   0 1 0 0 0 0 1 0
+  0 0 0 0 0 0 1 1   1 1 1 1 0 0 0 0   0 1 0 0 0 0 1 0
+  0 0 0 0 0 0 1 1   0 0 0 0 1 1 1 1   0 1 0 0 0 0 1 0
+  0 0 0 0 0 0 1 1   0 0 0 0 1 1 1 1   0 1 0 0 0 0 1 0  
+  
+  Merged layers using binary OR
+  1 1 1 1 0 1 1 1
+  1 1 1 1 0 1 1 1
+  0 0 1 1 0 1 1 1
+  0 0 1 1 0 1 1 1
+  1 1 1 1 0 0 1 1
+  1 1 1 1 0 0 1 1
+  0 1 0 1 1 1 1 1
+  0 1 0 1 1 1 1 1
+  
+  64 bit result from 32 random bits. As you notice the result is less random
+  than the single layers it tends to form rectangular isles and straight
+  horizontal or vertical lines. Using binary OR or AND operations to merge the
+  scaled layers is not the best method since it likely will produce a pattern
+  where all bits equal. Better sum up, divide by amount of layers and use a
+  threshold function to get the resulting bit. But hey, it's just an example.  
+  By the way, it was written and calculated manually, hope i didn't make a
+  mistake ;-D
+    
+  LICENSE  
+  Subsample Impressionist is free Software and released under the MIT License.
+  
+  The MIT License (MIT)
+
+  Copyright (c) 2014 goldsource
+  
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+  
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+  
+*/
+(function(id){
+  /* CONST ********************************************************************/
+  var WIDTH = 235, // QnD should be calculated from target canvas size
+  HEIGHT = 100, // s. WIDTH
+  MIN_LAYERS = 6,
+  MAX_LAYERS = 24,
+  MIN_LAYER_WIDTH = 32
+  MAX_LAYER_WIDTH = 235,
+  MIN_LAYER_HEIGHT = 32,
+  MAX_LAYER_HEIGHT = 100,
+  MIN_STEPS = 1,
+  MAX_STEPS = 3,
+  MAX_SPEED = 1,
+  MAX_COLOR_SPEED  = 1,
+  MAX_ALPHA_SPEED = 1,
+  /* DATA *********************************************************************/  
+  pixel_buffer = {}, 
+  requestAnimationFrame = window.requestAnimationFrame || window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame || window.msRequestAnimationFrame,
+  buffer = {}, // canvas and context added at init
+  screen = {}, // s. buffer
+  data = {
+    layer:[],
+    loop:true,
+    fps:30,
+    multiply_pass:true,
+  };
+  /* SEQUENCE *****************************************************************/
+  var init = function(){  
+    // visible canvas (pass its id at the bottom of this script)
+    screen.cv = document.getElementById(id);
+    screen.ctx = screen.cv.getContext("2d");
+    screen.ctx
+    // offscreen buffer canvas
+    buffer.cv = document.createElement("canvas"),
+    buffer.ctx  = buffer.cv.getContext("2d"),
+    // pixel buffer
+    pixel_buffer.cv = document.createElement("canvas");
+    pixel_buffer.data = pixel_buffer.cv.getContext("2d").createImageData(1,1);
+    screen.cv.width = buffer.cv.width = WIDTH;
+    screen.cv.height = buffer.cv.height = HEIGHT;    
+    screen.ctx.beginPath();
+    screen.ctx.fillStyle = "rgba(0,0,0,1)";
+    screen.ctx.fillRect(0,0,WIDTH,HEIGHT);
+    screen.ctx.fill();
+    var layer_count = randomInterval(MIN_LAYERS,MAX_LAYERS)<<0;
+    for(var i=0; i<layer_count;i++) data.layer.push(makeLayer());
+    requestAnimationFrame(loop);
+  };
+  var loop = function(){
+    if(Math.pow(Math.random(),3)>0.9){
+      data.layer.splice(
+        Math.round(Math.random()*(data.layer.length-1)),
+        0,
+        data.layer.splice(Math.round(Math.random()*(data.layer.length-1)),1)[0]
+      );
+    }
+    for(var i=0,len=data.layer.length;i<len;i++){
+      updateLayer(data.layer[i]);
+      renderLayer(data.layer[i]);
+    }
+    render();
+    setTimeout(function(){requestAnimationFrame(loop)},1000/data.fps);
+  };
+  var updateLayer = function(l){    
+    if(Math.pow(Math.random(),3)>0.9){      
+      l.operation = randomItem(composite);
+    }
+    if(Math.pow(Math.random(),3)>l.smooth_change_prob){      
+      l.smooth = randomBool();
+    }
+    for(var i=0; i<l.steps_per_frame; i++){
+      l.x_speed = signedClamp(l.x_speed+l.x_velocity*randomSigned(),MAX_SPEED);
+      l.x = limit[l.x_limit](l.x+l.x_speed,l.width);
+      l.y_speed = signedClamp(l.y_speed+l.y_velocity*randomSigned(),MAX_SPEED);
+      l.y = limit[l.y_limit](l.y+l.y_speed,l.height);       
+      
+      l.xo_speed = signedClamp(l.xo_speed+l.xo_velocity*randomSigned(),MAX_SPEED);
+      l.xo = limit[l.xo_limit](l.xo+l.xo_speed,l.width);
+      l.yo_speed = signedClamp(l.yo_speed+l.yo_velocity*randomSigned(),MAX_SPEED);
+      l.yo = limit[l.yo_limit](l.yo+l.yo_speed,l.height);
+      
+      l.r_speed = signedClamp(
+        l.r_speed+l.r_velocity*randomSigned(),
+        MAX_COLOR_SPEED
+      );
+      l.r = limit[l.r_limit](l.r+l.r_speed,0xFF);
+      l.g_speed = signedClamp(
+        l.g_speed+l.g_velocity*randomSigned(),
+        MAX_COLOR_SPEED
+      );
+      l.g = limit[l.g_limit](l.g+l.g_speed,0xFF);
+      l.b_speed = signedClamp(
+        l.b_speed+l.b_velocity*randomSigned(),
+        MAX_COLOR_SPEED
+      );
+      l.b = limit[l.b_limit](l.b+l.b_speed,0xFF);
+      l.a_speed = signedClamp(
+        l.a_speed+l.a_velocity*randomSigned(),
+        MAX_ALPHA_SPEED
+      );
+      l.a = limit[l.a_limit](l.a+l.a_speed,0xFF);   
+      l.intesity_speed = signedClamp(
+        l.intesity_speed+l.intesity_velocity*randomSigned(),
+        MAX_ALPHA_SPEED
+      );
+      l.intesity = limit[l.intesity_limit](l.intesity+l.intesity_speed,0xFF);
+      // draw stuff
+      var x = l.x<<0, y = l.y<<0;
+      pixel_buffer.data.data[0] = (l.r);
+      pixel_buffer.data.data[1] = (l.g);
+      pixel_buffer.data.data[2] = (l.b);
+      pixel_buffer.data.data[3] = (l.a);
+      l.ctx.putImageData(pixel_buffer.data,x,y);  
+    }
+  };
+  
+  /* LAYER ********************************************************************/
+  /**
+    Supported canvas composite operations
+  */
+  var composite = [
+    "difference","multiply","screen","overlay",
+    "darken","lighten","color-dodge","color-burn",
+    "hard-light","soft-light","exclusion","hue",
+    "saturation","color","luminosity"
+  ];
+  /**
+    Different ways to handle value overflows
+  */
+  var limit = {
+    // wrap around boundaries
+    wrap:function(value,limit){      
+      return (value+limit)%limit;
+    },
+    // stay at boundaries
+    clamp:function(value,limit){
+      return Math.min(limit,Math.max(0,value));
+    },
+    // bounce from boundaries
+    bounce:function(value,limit){      
+      return value-(value+limit)%limit;
+    },
+    // random respawn on boundaries
+    random:function(value,limit){      
+      return (value>=0&&value<=limit)?value:Math.random()*limit;
+    }
+  };
+  /**
+    A layer contains a canvas and params that define how it is altered on update
+    Pass options to overwrite default random values
+  */
+  var makeLayer = function(o){
+    var l = {};
+    l.width = (
+      MIN_LAYER_WIDTH+
+      Math.pow(Math.random(),2)* 
+      (MAX_LAYER_WIDTH-MIN_LAYER_WIDTH)      
+    )<<0;
+    l.height = (
+      MIN_LAYER_HEIGHT+
+      Math.pow(Math.random(),2)*
+      (MAX_LAYER_HEIGHT-MIN_LAYER_HEIGHT)      
+    )<<0;
+    l.steps_per_frame = randomInterval(MIN_STEPS,MAX_STEPS)<<0;
+    l.x = Math.random()*l.width; // dependecy induced overflow will be clipped
+    l.x_limit = 'wrap';//randomKey(limit);
+    l.x_speed = randomSigned()*MAX_SPEED;    
+    l.x_velocity = Math.random()*MAX_SPEED;    
+    l.y = Math.random()*l.height; // s. l.x
+    l.y_limit = 'wrap';//randomKey(limit);
+    l.y_speed = randomSigned()*MAX_SPEED; 
+    l.y_velocity = Math.random()*MAX_SPEED;
+    
+    l.xo = Math.random()*l.width; // dependecy induced overflow will be clipped
+    l.xo_limit = 'wrap';//randomKey(limit);
+    l.xo_speed = randomSigned()*MAX_SPEED;    
+    l.xo_velocity = Math.random()*MAX_SPEED;    
+    l.yo = Math.random()*l.height; // s. l.x
+    l.yo_limit = 'wrap';//randomKey(limit);
+    l.yo_speed = randomSigned()*MAX_SPEED; 
+    l.yo_velocity = Math.random()*MAX_SPEED;
+    
+    l.r = Math.random()*0xFF;
+    l.r_limit = randomKey(limit);
+    l.r_speed = randomSigned()*MAX_COLOR_SPEED;
+    l.r_velocity = Math.random()*MAX_COLOR_SPEED;
+    l.g = Math.random()*0xFF;
+    l.g_limit = randomKey(limit);
+    l.g_speed = randomSigned()*MAX_COLOR_SPEED;
+    l.g_velocity = Math.random()*MAX_COLOR_SPEED;
+    l.b = Math.random()*0xFF;
+    l.b_limit = randomKey(limit);
+    l.b_speed = randomSigned()*MAX_COLOR_SPEED;
+    l.b_velocity = Math.random()*MAX_COLOR_SPEED;
+    l.a = Math.random()*0xFF;
+    l.a_limit = randomKey(limit);
+    l.a_speed = randomSigned()*MAX_ALPHA_SPEED;
+    l.a_velocity = Math.random()*MAX_ALPHA_SPEED;
+    l.operation = randomItem(composite);
+    l.operation_change_prob = Math.random();
+    l.intesity = Math.random(); 
+    l.intesity_limit = "clamp";
+    l.intesity_speed = randomSigned()*MAX_ALPHA_SPEED;
+    l.intesity_velocity = Math.random()*MAX_ALPHA_SPEED;
+    l.smooth = randomBool(); // ugly but fast blur
+    //l.smooth_change_prob = Math.random();
+    for(var k in o) l[k] = o[k]; // overwrite with given options    
+    l.cv = document.createElement("canvas");
+    l.ctx = l.cv.getContext("2d");
+    l.cv.width = l.width;
+    l.cv.height = l.height;
+    l.ctx.clearRect(0,0,l.width,l.height);
+    return l;
+  };
+  /* RENDER *******************************************************************/
+  var render = function(){    
+    //for(var i=0,len=data.layer.length;i<len;i++) 
+    //screen.ctx.save();
+    screen.ctx.beginPath();
+    screen.ctx.globalCompositeOperation ="source-over";
+    screen.ctx.fillStyle = "rgba(0,0,0,0.01)";
+    screen.ctx.fillRect(0,0,screen.cv.width,screen.cv.height);
+    screen.ctx.fill();
+    screen.ctx.globalAlpha = .01;
+    screen.ctx.globalCompositeOperation ="source-over";
+    screen.ctx.drawImage(buffer.cv, 0, 0);
+    if(data.multiply_pass){
+      screen.ctx.globalCompositeOperation ="multiply";
+      screen.ctx.drawImage(buffer.cv, 0, 0);
+    }
+  };
+  var renderLayer = function(l){
+    buffer.ctx.globalAlpha = l.intesity;
+    buffer.ctx.globalCompositeOperation = l.operation;
+    buffer.ctx.imageSmoothingEnabled = true;            
+    buffer.ctx.save();
+    buffer.ctx.scale(WIDTH/l.width, HEIGHT/l.height);
+    buffer.ctx.drawImage(l.cv, l.xo, l.yo);
+    if(l.xo!=0 || l.yo!=0){
+      buffer.ctx.drawImage(l.cv, l.xo-l.width, l.yo);
+      buffer.ctx.drawImage(l.cv, l.xo, l.yo-l.height);
+      buffer.ctx.drawImage(l.cv, l.xo-l.width, l.yo-l.height);
+    }
+    buffer.ctx.restore();
+  };
+  /* UTIL *********************************************************************/  
+  randomBool = function(){
+    return (Math.random()>=.5)?true:false;
+  },
+  randomItem = function(arr){
+    return arr[arr.length*Math.random()<<0];
+  },
+  randomInterval = function(min,max){
+    return min+Math.random()*(max-min)
+  }, 
+  randomSigned = function(){
+    return -1+Math.random()*2;
+  }, 
+  randomKey = function(obj){
+    var keys = Object.keys(obj)
+    return keys[keys.length*Math.random()<<0];
+  },
+  signedClamp = function(val,limit){
+    return Math.min(limit,Math.max(-limit,val));
+  }
+  /* MAKE IT HAPPEN ***********************************************************/
+  init();
+}("screen"));
+</script>
+
+
+</body></html>
